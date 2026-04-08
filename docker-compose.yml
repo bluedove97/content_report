@@ -1,0 +1,11 @@
+services:
+  morning-report:
+    build: .
+    container_name: morning_report
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./.tmp:/app/.tmp
+    environment:
+      - TZ=Asia/Seoul

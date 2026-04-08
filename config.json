@@ -1,0 +1,13 @@
+{
+  "companies": [
+    { "ticker": "483650", "name": "달바글로벌" },
+    { "ticker": "462870", "name": "시프트업" },
+    { "ticker": "035720", "name": "카카오" },
+    { "ticker": "035420", "name": "NAVER" },
+    { "ticker": "005380", "name": "현대차" }
+  ],
+  "report": {
+    "weeks_of_data": 1,
+    "news_articles_per_company": 5
+  }
+}

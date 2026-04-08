@@ -1,0 +1,4 @@
+finance-datareader
+feedparser
+python-dotenv
+requests
