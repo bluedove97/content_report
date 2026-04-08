@@ -63,15 +63,42 @@ def build_company_section(name: str, stock: dict | None, news_list: list) -> str
     if stock:
         prices = stock.get("close", [])
         dates = stock.get("dates", [])
+        volumes = stock.get("volumes", [])
         if prices and dates:
-            cells = "".join(
-                f'<td style="text-align:center;padding:4px 6px;font-size:11px;color:#555;">'
-                f'{d}<br><span style="font-size:12px;font-weight:600;">{p:,}</span></td>'
-                for d, p in zip(dates, prices)
-            )
+            # 전일대비: changes[i] = prices[i] - prices[i-1], changes[0] = None
+            changes = [None] + [prices[i] - prices[i-1] for i in range(1, len(prices))]
+
+            td = 'style="padding:5px 16px;font-size:12px;border-bottom:1px solid #eee;"'
+            td_r = 'style="padding:5px 16px;font-size:12px;text-align:right;border-bottom:1px solid #eee;"'
+
+            rows = ""
+            for d, p, c, v in zip(reversed(dates), reversed(prices), reversed(changes), reversed(volumes) if volumes else ["-"]*len(prices)):
+                if c is None:
+                    info_td = f'<td {td_r}>-</td>'
+                else:
+                    color = "#d32f2f" if c > 0 else ("#1565c0" if c < 0 else "#555")
+                    arrow = "▲" if c > 0 else ("▼" if c < 0 else "―")
+                    rate  = c / (p - c) * 100 if (p - c) != 0 else 0
+                    vol_str = f'{v:,}' if isinstance(v, int) else v
+                    info_td = (
+                        f'<td {td_r}>'
+                        f'<span style="color:{color};display:block;">{arrow} {abs(c):,}</span>'
+                        f'<span style="color:{color};display:block;">{rate:+.2f}%</span>'
+                        f'<span style="color:#555;display:block;">{vol_str}</span>'
+                        f'</td>'
+                    )
+                rows += f'<tr><td {td}>{d}</td><td {td_r}><b>{p:,}</b></td>{info_td}</tr>'
+
             price_bar = f"""
-            <table style="width:100%;border-collapse:collapse;background:#fafafa;border-radius:6px;margin-bottom:10px;">
-              <tr>{cells}</tr>
+            <table style="border-collapse:collapse;background:#fafafa;border-radius:6px;margin-bottom:10px;">
+              <thead>
+                <tr style="background:#f0f0f0;">
+                  <th style="padding:5px 16px;font-size:11px;color:#888;font-weight:600;text-align:left;">날짜</th>
+                  <th style="padding:5px 16px;font-size:11px;color:#888;font-weight:600;text-align:right;">종가</th>
+                  <th style="padding:5px 16px;font-size:11px;color:#888;font-weight:600;text-align:right;">등락,거래량</th>
+                </tr>
+              </thead>
+              <tbody>{rows}</tbody>
             </table>"""
 
     # 뉴스 목록

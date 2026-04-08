@@ -48,6 +48,7 @@ def fetch_weekly_data(ticker: str, name: str, weeks: int = 1) -> dict | None:
         "week_high": int(df["High"].max()),
         "week_low": int(df["Low"].min()),
         "volume": int(df["Volume"].iloc[-1]),
+        "volumes": [int(v) for v in df["Volume"].tolist()],
     }
 
 

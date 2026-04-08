@@ -7,7 +7,7 @@ import json
 import os
 import sys
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 import feedparser
 import requests
@@ -33,7 +33,8 @@ def fetch_company_news(company_name: str, max_articles: int = 5) -> list[dict]:
     for entry in feed.entries[:max_articles]:
         published = ""
         if hasattr(entry, "published_parsed") and entry.published_parsed:
-            published = datetime(*entry.published_parsed[:6]).strftime("%Y-%m-%d %H:%M")
+            KST = timezone(timedelta(hours=9))
+            published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc).astimezone(KST).strftime("%Y-%m-%d %H:%M")
 
         # Google News RSS의 source 추출
         source = ""
