@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 
 import FinanceDataReader as fdr
 
+import fetch_companies
+
 
 def load_config(config_path: str = "config.json") -> dict:
     with open(config_path, encoding="utf-8") as f:
@@ -30,31 +32,37 @@ def fetch_weekly_data(ticker: str, name: str, weeks: int = 1) -> dict | None:
         print(f"  [경고] {name}({ticker}): 데이터 없음", file=sys.stderr)
         return None
 
-    # 최근 5거래일만
-    df = df.tail(5)
+    # 6일치 확보 후 표시는 최근 5거래일 — 가장 오래된 날의 등락 계산을 위해 1일 여유
+    df = df.tail(6)
 
     close_prices = df["Close"].tolist()
-    first_close = close_prices[0]
     last_close = close_prices[-1]
+    first_close = close_prices[0]
     change_pct = round((last_close - first_close) / first_close * 100, 2) if first_close else 0
+
+    # 표시용 5일치 (마지막 5행)
+    df_display = df.tail(5)
+    display_closes = [int(p) for p in df_display["Close"].tolist()]
+    display_volumes = [int(v) for v in df_display["Volume"].tolist()]
 
     return {
         "ticker": ticker,
         "name": name,
-        "dates": [d.strftime("%m/%d") for d in df.index],
-        "close": [int(p) for p in close_prices],
+        "dates": [d.strftime("%m/%d") for d in df_display.index],
+        "close": display_closes,
+        "close_prev": int(close_prices[0]),  # 6번째 날 종가 — 등락 계산용
         "current_price": int(last_close),
         "change_pct": change_pct,
-        "week_high": int(df["High"].max()),
-        "week_low": int(df["Low"].min()),
-        "volume": int(df["Volume"].iloc[-1]),
-        "volumes": [int(v) for v in df["Volume"].tolist()],
+        "week_high": int(df_display["High"].max()),
+        "week_low": int(df_display["Low"].min()),
+        "volume": int(df_display["Volume"].iloc[-1]),
+        "volumes": display_volumes,
     }
 
 
 def run(config_path: str = "config.json", output_path: str = ".tmp/stock_data.json") -> None:
     config = load_config(config_path)
-    companies = config["companies"]
+    companies = fetch_companies.get_companies_with_fallback(config_path)
     weeks = config["report"].get("weeks_of_data", 1)
 
     results = []

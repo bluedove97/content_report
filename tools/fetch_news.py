@@ -12,6 +12,8 @@ from datetime import datetime, timezone, timedelta
 import feedparser
 import requests
 
+import fetch_companies
+
 
 def fetch_company_news(company_name: str, max_articles: int = 5) -> list[dict]:
     query = urllib.parse.quote(company_name)
@@ -57,7 +59,7 @@ def run(config_path: str = "config.json", output_path: str = ".tmp/news_data.jso
     with open(config_path, encoding="utf-8") as f:
         config = json.load(f)
 
-    companies = config["companies"]
+    companies = fetch_companies.get_companies_with_fallback(config_path)
     max_articles = config["report"].get("news_articles_per_company", 5)
 
     results = {}

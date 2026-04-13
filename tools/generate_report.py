@@ -64,12 +64,17 @@ def build_company_section(name: str, stock: dict | None, news_list: list) -> str
         prices = stock.get("close", [])
         dates = stock.get("dates", [])
         volumes = stock.get("volumes", [])
+        close_prev = stock.get("close_prev")  # 표시 범위 이전 날 종가 (등락 계산용)
         if prices and dates:
-            # 전일대비: changes[i] = prices[i] - prices[i-1], changes[0] = None
-            changes = [None] + [prices[i] - prices[i-1] for i in range(1, len(prices))]
+            # 전일대비: changes[i] = prices[i] - prices[i-1]
+            # close_prev가 있으면 첫 번째 행도 계산 가능
+            prev_for_first = close_prev if close_prev is not None else None
+            changes = (
+                [prices[0] - prev_for_first] if prev_for_first is not None else [None]
+            ) + [prices[i] - prices[i-1] for i in range(1, len(prices))]
 
-            td = 'style="padding:5px 16px;font-size:12px;border-bottom:1px solid #eee;"'
-            td_r = 'style="padding:5px 16px;font-size:12px;text-align:right;border-bottom:1px solid #eee;"'
+            td = 'style="padding:5px 8px;font-size:12px;border-bottom:1px solid #eee;"'
+            td_r = 'style="padding:5px 8px;font-size:12px;text-align:right;border-bottom:1px solid #eee;"'
 
             rows = ""
             for d, p, c, v in zip(reversed(dates), reversed(prices), reversed(changes), reversed(volumes) if volumes else ["-"]*len(prices)):
@@ -90,12 +95,17 @@ def build_company_section(name: str, stock: dict | None, news_list: list) -> str
                 rows += f'<tr><td {td}>{d}</td><td {td_r}><b>{p:,}</b></td>{info_td}</tr>'
 
             price_bar = f"""
-            <table style="border-collapse:collapse;background:#fafafa;border-radius:6px;margin-bottom:10px;">
+            <table style="width:100%;border-collapse:collapse;background:#fafafa;border-radius:6px;margin-bottom:10px;table-layout:fixed;">
+              <colgroup>
+                <col style="width:30%;">
+                <col style="width:30%;">
+                <col style="width:40%;">
+              </colgroup>
               <thead>
                 <tr style="background:#f0f0f0;">
-                  <th style="padding:5px 16px;font-size:11px;color:#888;font-weight:600;text-align:left;">날짜</th>
-                  <th style="padding:5px 16px;font-size:11px;color:#888;font-weight:600;text-align:right;">종가</th>
-                  <th style="padding:5px 16px;font-size:11px;color:#888;font-weight:600;text-align:right;">등락,거래량</th>
+                  <th style="padding:5px 8px;font-size:11px;color:#888;font-weight:600;text-align:left;">날짜</th>
+                  <th style="padding:5px 8px;font-size:11px;color:#888;font-weight:600;text-align:right;">종가</th>
+                  <th style="padding:5px 8px;font-size:11px;color:#888;font-weight:600;text-align:right;">등락,거래량</th>
                 </tr>
               </thead>
               <tbody>{rows}</tbody>
