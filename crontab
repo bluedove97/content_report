@@ -1,4 +1,4 @@
 # 매일 오전 7시에 모닝 리포트 실행 (KST)
-0 7 * * * /usr/local/bin/python3 /app/tools/run_morning_report.py >> /var/log/cron.log 2>&1
+0 7 * * * /usr/local/bin/python3 /app/tools/r01/run_morning_report.py >> /var/log/cron.log 2>&1
 
 # 빈 줄 필수 (cron 요구사항)

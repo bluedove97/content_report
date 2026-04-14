@@ -3,3 +3,8 @@ feedparser
 python-dotenv
 requests
 pymysql
+pykrx
+pandas-ta
+setuptools==69.5.1
+opendartreader
+ollama

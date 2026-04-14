@@ -2,7 +2,7 @@
 
 ## 목적
 
-매일 오전 6시, `config.json`에 있는 한국 주식(KOSPI/KOSDAQ) 종목들에 대해
+매일 오전 7시, `config.json`에 있는 한국 주식(KOSPI/KOSDAQ) 종목들에 대해
 주간 주가 현황과 최신 뉴스를 수집하고 HTML 이메일로 자동 발송한다.
 
 ## 데이터 흐름
@@ -71,10 +71,10 @@ docker logs morning_report   # 로그 확인
 ```bash
 # 방법 1: 로컬에서 직접 실행
 pip install -r requirements.txt
-python tools/run_morning_report.py
+python tools/r01/run_morning_report.py
 
 # 방법 2: Docker 컨테이너 안에서 실행
-docker-compose run --rm morning-report python tools/run_morning_report.py
+docker-compose run --rm morning-report python tools/r01/run_morning_report.py
 ```
 
 ---
@@ -119,8 +119,8 @@ tail -f .tmp/morning_report.log
 1. `.tmp/morning_report.log` 에서 에러 메시지 확인
 2. 개별 Tool을 단독으로 실행해 에러 재현:
    ```bash
-   python tools/fetch_stock.py
-   python tools/fetch_news.py
+   python tools/r01/fetch_stock.py
+   python tools/r01/fetch_news.py
    ```
 3. `.env` 파일 키 누락 여부 확인
 4. Gmail 앱 비밀번호 유효한지 확인 (구글 계정 보안 설정)
@@ -130,7 +130,7 @@ tail -f .tmp/morning_report.log
 
 ## 나중에 추가 가능한 기능
 
-- **DART 공시 데이터**: `tools/fetch_dart.py` 추가. opendart.fss.or.kr 무료 가입 필요.
+- **DART 공시 데이터**: `tools/r01/fetch_dart.py` 추가. opendart.fss.or.kr 무료 가입 필요.
 - **주요 지수 요약**: KOSPI/KOSDAQ 지수 자체도 상단에 표시
 - **해외 주식**: yfinance 연동 (ticker 형식: `AAPL`, `TSLA`)
 - **Google Sheets 이력 저장**: 매일 데이터를 시트에 누적 저장

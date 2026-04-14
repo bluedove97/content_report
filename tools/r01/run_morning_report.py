@@ -17,9 +17,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # 프로젝트 루트 기준으로 실행되도록
-ROOT = Path(__file__).parent.parent
+ROOT = Path(__file__).parent.parent.parent
 os.chdir(ROOT)
-sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "tools" / "r01"))
 
 import fetch_news
 import fetch_stock
