@@ -1,4 +1,7 @@
 # 매일 오전 7시에 모닝 리포트 실행 (KST)
 0 7 * * * /usr/local/bin/python3 /app/tools/r01/run_morning_report.py >> /var/log/cron.log 2>&1
 
+# 월-금 매일 오후 4시 30분에 종목 분석 리포트 실행 (KST)
+30 16 * * 1-5 /usr/local/bin/python3 /app/tools/r02/run_analysis_report.py >> /var/log/cron.log 2>&1
+
 # 빈 줄 필수 (cron 요구사항)

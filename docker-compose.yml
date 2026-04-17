@@ -1,7 +1,7 @@
 services:
-  morning-report:
+  stock-report:
     build: .
-    container_name: morning_report
+    container_name: stock_report
     restart: unless-stopped
     env_file:
       - .env

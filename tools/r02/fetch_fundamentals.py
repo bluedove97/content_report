@@ -20,6 +20,7 @@ import requests
 _NAVER_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 _MARKET_AVG_CACHE: dict = {}
+_NAVER_RAW_CACHE: dict = {}
 
 
 def _parse_num(s: str) -> float | None:
@@ -64,6 +65,72 @@ def get_ticker_market(ticker: str) -> str:
     return "KOSPI"
 
 
+def _fetch_naver_raw(ticker: str) -> dict:
+    """네이버 integration API 원본 JSON 반환 (캐시 사용)"""
+    if ticker in _NAVER_RAW_CACHE:
+        return _NAVER_RAW_CACHE[ticker]
+    try:
+        r = requests.get(
+            f"https://m.stock.naver.com/api/stock/{ticker}/integration",
+            headers=_NAVER_HEADERS,
+            timeout=10,
+        )
+        data = r.json() if r.status_code == 200 else {}
+    except Exception as e:
+        print(f"    [경고] 네이버 API 수집 실패 ({ticker}): {e}", file=sys.stderr)
+        data = {}
+    _NAVER_RAW_CACHE[ticker] = data
+    return data
+
+
+def _get_industry_name(ticker: str) -> str | None:
+    """네이버 금융 PC 페이지에서 업종명 파싱"""
+    try:
+        r = requests.get(
+            f"https://finance.naver.com/item/main.nhn?code={ticker}",
+            headers=_NAVER_HEADERS,
+            timeout=8,
+        )
+        if r.status_code == 200:
+            match = re.search(r"업종.*?<a[^>]+upjong[^>]+>([^<]+)</a>", r.text)
+            if match:
+                return match.group(1).strip()
+    except Exception:
+        pass
+    return None
+
+
+def fetch_sector_info(ticker: str) -> dict:
+    """업종명 및 동종 업종 평균 PER/PBR 계산 (industryCompareInfo peer 기준)"""
+    result = {"sector_name": None, "sector_per": None, "sector_pbr": None}
+
+    result["sector_name"] = _get_industry_name(ticker)
+
+    raw = _fetch_naver_raw(ticker)
+    peer_tickers = [
+        s.get("itemCode")
+        for s in raw.get("industryCompareInfo", [])
+        if s.get("itemCode")
+    ]
+
+    pers, pbrs = [], []
+    for pt in peer_tickers:
+        pd = _fetch_naver_integration(pt)
+        if pd.get("per"):
+            pers.append(pd["per"])
+        if pd.get("pbr"):
+            pbrs.append(pd["pbr"])
+
+    if pers:
+        pers_sorted = sorted(pers)
+        result["sector_per"] = round(pers_sorted[len(pers_sorted) // 2], 1)
+    if pbrs:
+        pbrs_sorted = sorted(pbrs)
+        result["sector_pbr"] = round(pbrs_sorted[len(pbrs_sorted) // 2], 2)
+
+    return result
+
+
 def fetch_market_averages() -> dict:
     """
     시장 평균 PER/PBR — 네이버 대표 종목 샘플로 추정
@@ -99,17 +166,8 @@ def fetch_market_averages() -> dict:
 
 def _fetch_naver_integration(ticker: str) -> dict:
     """네이버 금융 integration API에서 PER/PBR/EPS/BPS/배당/시가총액 추출"""
-    try:
-        r = requests.get(
-            f"https://m.stock.naver.com/api/stock/{ticker}/integration",
-            headers=_NAVER_HEADERS,
-            timeout=10,
-        )
-        if r.status_code != 200:
-            return {}
-        data = r.json()
-    except Exception as e:
-        print(f"    [경고] 네이버 재무 지표 수집 실패 ({ticker}): {e}", file=sys.stderr)
+    data = _fetch_naver_raw(ticker)
+    if not data:
         return {}
 
     result = {}
@@ -310,6 +368,12 @@ def run(config_path: str = "config.json", output_path: str = ".tmp/r02_fundament
 
         mkt = get_ticker_market(ticker)
         naver_data = fetch_naver_fundamentals(ticker)
+        sector_info = fetch_sector_info(ticker)  # integration 캐시 재사용
+        naver_data["sector_name"] = sector_info["sector_name"]
+        naver_data["sector_per"] = sector_info["sector_per"]
+        naver_data["sector_pbr"] = sector_info["sector_pbr"]
+        if sector_info["sector_name"] or sector_info["sector_per"]:
+            print(f"    업종: {sector_info['sector_name']} / 업종 평균 PER: {sector_info['sector_per']}, PBR: {sector_info['sector_pbr']}")
 
         dart_data = {}
         if dart:

@@ -232,11 +232,13 @@ def _build_stock_section(row: dict) -> str:
         ("배당수익률", f"{fd['div']:.1f}%" if fd.get("div") else "N/A"),
     ])
 
-    # ── ② 재무 분석 (pykrx — 저평가 라벨은 Ollama 판단에 위임) ──
+    # ── ② 재무 분석 (시장/업종 기준) ──
     per = fd.get("per")
     pbr = fd.get("pbr")
     mkt_per = an.get("market_avg_per")
     mkt_pbr = an.get("market_avg_pbr")
+    sector_name = fd.get("sector_name")
+    sector_per = fd.get("sector_per")
 
     per_str = f"{per:.1f}배" if per else "N/A"
     pbr_str = f"{pbr:.2f}배" if pbr else "N/A"
@@ -248,6 +250,13 @@ def _build_stock_section(row: dict) -> str:
         c = "#d32f2f" if diff > 15 else ("#2e7d32" if diff < -15 else "#555")
         per_diff = f' <span style="color:{c};font-size:11px;">({sign}{diff:.0f}% vs 시장)</span>'
 
+    sec_per_diff = ""
+    if per and sector_per:
+        sdiff = (per - sector_per) / sector_per * 100
+        ssign = "+" if sdiff > 0 else ""
+        sc = "#d32f2f" if sdiff > 15 else ("#2e7d32" if sdiff < -15 else "#777")
+        sec_per_diff = f' <span style="color:{sc};font-size:11px;">({ssign}{sdiff:.0f}% vs 업종)</span>'
+
     pbr_diff = ""
     if pbr and mkt_pbr:
         diff = (pbr - mkt_pbr) / mkt_pbr * 100
@@ -255,13 +264,20 @@ def _build_stock_section(row: dict) -> str:
         c = "#d32f2f" if diff > 15 else ("#2e7d32" if diff < -15 else "#555")
         pbr_diff = f' <span style="color:{c};font-size:11px;">({sign}{diff:.0f}% vs 시장)</span>'
 
-    sec2 = _section_header("②", "재무 분석 (현재 시장 기준)")
-    sec2 += _kv_table([
-        ("PER", f"{per_str}{per_diff}"),
+    sec2 = _section_header("②", "재무 분석 (시장/업종 기준)")
+    sec2_pairs = [
+        ("PER", f"{per_str}{per_diff}{sec_per_diff}"),
         ("PBR", f"{pbr_str}{pbr_diff}"),
         (f"{market} 평균 PER", f"{mkt_per:.1f}배" if mkt_per else "N/A"),
         (f"{market} 평균 PBR", f"{mkt_pbr:.2f}배" if mkt_pbr else "N/A"),
-    ])
+    ]
+    sector_pbr = fd.get("sector_pbr")
+    if sector_name or sector_per:
+        sector_label = f"업종 ({sector_name})" if sector_name else "업종"
+        per_part = f"평균 PER {sector_per:.1f}배" if sector_per else "평균 PER N/A"
+        pbr_part = f" / 평균 PBR {sector_pbr:.2f}배" if sector_pbr else ""
+        sec2_pairs.append((sector_label, f"{per_part}{pbr_part}"))
+    sec2 += _kv_table(sec2_pairs)
 
     # ── ②-DART 3개년 재무 추세 ──
     sec2_dart = _build_dart_section(fd.get("dart"))
@@ -290,8 +306,18 @@ def _build_stock_section(row: dict) -> str:
         sign = "+" if gap > 0 else ""
         per_gap_str = f"{sign}{gap:.0f}%"
 
+    sec3_pairs = []
+    if sector_name:
+        sec3_pairs.append(("업종", sector_name))
+    sec3_pairs.append((f"{market} 평균 PER 대비", per_gap_str))
+    if per and sector_per:
+        sgap = (per - sector_per) / sector_per * 100
+        ssign = "+" if sgap > 0 else ""
+        sec3_pairs.append(("업종 평균 PER 대비", f"{ssign}{sgap:.0f}%"))
+    sec3_pairs.append(("52주 가격 위치", ""))
+
     sec3 = _section_header("③", "산업 분석")
-    sec3 += _kv_table([(f"{market} 평균 PER 대비", per_gap_str), ("52주 가격 위치", "")])
+    sec3 += _kv_table(sec3_pairs)
     sec3 += pos_bar
 
     # ── ④ 모멘텀 분석 ──
@@ -391,7 +417,7 @@ def _build_stock_section(row: dict) -> str:
       {"" if not summary else f'<div style="font-size:12px;color:#555;margin-top:6px;">{summary}</div>'}
     </div>
     {reason_html}
-    <p style="font-size:11px;color:#aaa;margin:8px 0 0 0;">※ 본 분석은 Ollama(qwen3:8b) AI 생성 참고 자료입니다. 투자 판단의 근거로 사용하지 마세요.</p>"""
+    <p style="font-size:11px;color:#aaa;margin:8px 0 0 0;">※ 본 분석은 Claude(claude-haiku-4-5) AI 생성 참고 자료입니다. 투자 판단의 근거로 사용하지 마세요.</p>"""
 
     return header_html + sec1 + sec2 + sec2_dart + sec3 + sec4 + sec5 + sec6 + "</div>"
 
@@ -443,7 +469,7 @@ def build_full_report(rows: list[dict], report_date: str) -> str:
     <!-- 푸터 -->
     <div style="background:#f5f5f5;padding:14px 24px;text-align:center;border-top:1px solid #e0e0e0;">
       <p style="margin:0;color:#aaa;font-size:11px;">AI 생성 분석 리포트입니다. 투자 판단의 근거로 사용하지 마세요.</p>
-      <p style="margin:4px 0 0 0;color:#bbb;font-size:10px;">데이터: KRX(pykrx), FinanceDataReader, DART(공시) &nbsp;|&nbsp; 분석: Ollama qwen3:8b</p>
+      <p style="margin:4px 0 0 0;color:#bbb;font-size:10px;">데이터: KRX(pykrx), FinanceDataReader, DART(공시) &nbsp;|&nbsp; 분석: Claude claude-haiku-4-5</p>
     </div>
 
   </div>

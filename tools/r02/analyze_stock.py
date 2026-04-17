@@ -1,6 +1,6 @@
 """
-종목 분석 엔진 Tool — Ollama qwen3:8b
-재무 지표 + 기술적 지표 + DART 재무제표를 Ollama에 제공하여
+종목 분석 엔진 Tool — Claude API (claude-haiku-4-5)
+재무 지표 + 기술적 지표 + DART 재무제표를 Claude API에 제공하여
 증권사 애널리스트 수준의 6단계 분석 및 매수/매도 추천을 생성합니다.
 
 응답 형식 (JSON):
@@ -74,9 +74,15 @@ MACD: {macd_label} / 볼린저밴드 위치: {_v(stock_data, 'bb_position', defa
 
     # ── 재무 평가 지표 블록 (pykrx) ──
     mkt_per_str = f"{mkt_avg.get('per')}배" if mkt_avg.get("per") else "N/A"
-    fund_block = f"""[재무 평가 지표 — 현재 시장 기준]
-PER: {f"{fundamentals.get('per')}배" if fundamentals.get('per') else "N/A"} ({market} 평균: {mkt_per_str})
-PBR: {f"{fundamentals.get('pbr')}배" if fundamentals.get('pbr') else "N/A"}
+    sector_name = fundamentals.get("sector_name", "")
+    sector_per = fundamentals.get("sector_per")
+    sector_pbr = fundamentals.get("sector_pbr")
+    sector_label = f"업종({sector_name})" if sector_name else "업종"
+    sector_per_str = f" / {sector_label} 평균: {sector_per}배" if sector_per is not None else ""
+    sector_pbr_str = f" ({sector_label} 평균: {sector_pbr}배)" if sector_pbr is not None else ""
+    fund_block = f"""[재무 평가 지표 — 현재 시장/업종 기준]
+PER: {f"{fundamentals.get('per')}배" if fundamentals.get('per') else "N/A"} ({market} 평균: {mkt_per_str}{sector_per_str})
+PBR: {f"{fundamentals.get('pbr')}배" if fundamentals.get('pbr') else "N/A"}{sector_pbr_str}
 EPS: {_price(fundamentals.get('eps'))} / BPS: {_price(fundamentals.get('bps'))}
 배당수익률: {f"{fundamentals.get('div')}%" if fundamentals.get('div') else "N/A"}"""
 
@@ -166,35 +172,33 @@ def _fallback(ticker: str, name: str, market: str, reason: str, fundamentals: di
 
 def analyze(stock_data: dict, fundamentals: dict, market_avgs: dict) -> dict:
     """
-    단일 종목을 Ollama qwen3:8b로 분석합니다.
-    연결 실패 또는 파싱 실패 시 중립(fallback)을 반환합니다.
+    단일 종목을 Claude API (claude-haiku-4-5)로 분석합니다.
+    API 호출 실패 또는 파싱 실패 시 중립(fallback)을 반환합니다.
     """
-    import ollama
+    import anthropic
 
     ticker = stock_data.get("ticker", "")
     name = stock_data.get("name", "")
     market = fundamentals.get("market", "KOSPI")
     mkt_avg = market_avgs.get(market, {})
 
-    ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
     prompt = _build_prompt(stock_data, fundamentals, market_avgs)
 
-    # ── Ollama 호출 ──
+    # ── Claude API 호출 ──
     raw_text = ""
     try:
-        client = ollama.Client(host=ollama_host)
-        response = client.chat(
-            model="qwen3:8b",
+        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            system=SYSTEM_PROMPT,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
-            options={"temperature": 0.3},
-            think=False,
         )
-        raw_text = response.message.content.strip()
+        raw_text = response.content[0].text.strip()
     except Exception as e:
-        err = f"Ollama 연결 실패 ({ollama_host}): {e}"
+        err = f"Claude API 호출 실패: {e}"
         print(f"  [경고] {name}({ticker}) {err}", file=sys.stderr)
         return _fallback(ticker, name, market, err, fundamentals, market_avgs)
 
