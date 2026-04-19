@@ -63,15 +63,16 @@ def send_error_notification(error_summary: str, logger: logging.Logger) -> None:
     try:
         app_password = os.environ.get("GMAIL_APP_PASSWORD", "")
         sender = os.environ.get("GMAIL_SENDER", "")
-        recipient = os.environ.get("GMAIL_RECIPIENT", "")
-        if not (app_password and sender and recipient):
+        recipient_raw = os.environ.get("GMAIL_RECIPIENT", "")
+        recipients = [r.strip() for r in recipient_raw.split(",") if r.strip()]
+        if not (app_password and sender and recipients):
             logger.warning("Gmail 인증 정보 없음. 에러 알림 발송 불가.")
             return
 
         today = datetime.today().strftime("%Y-%m-%d")
         subject = f"[주식 리포트] 오류 발생 - {today}"
         body = f"<pre style='font-family:monospace;'>{error_summary}</pre>"
-        send_email.send_report(body, subject, sender, recipient, app_password)
+        send_email.send_report(body, subject, sender, recipients, app_password)
         logger.info("에러 알림 이메일 발송 완료")
     except Exception:
         logger.error(f"에러 알림 발송도 실패:\n{traceback.format_exc()}")

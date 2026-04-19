@@ -6,6 +6,9 @@ token.json
 # 임시 작업 공간
 .tmp/
 
+# OpenDartReader 캐시
+docs_cache/
+
 # Python
 __pycache__/
 *.py[cod]
