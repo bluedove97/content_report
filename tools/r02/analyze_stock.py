@@ -172,11 +172,10 @@ def _fallback(ticker: str, name: str, market: str, reason: str, fundamentals: di
 
 def analyze(stock_data: dict, fundamentals: dict, market_avgs: dict) -> dict:
     """
-    단일 종목을 Claude API (claude-haiku-4-5)로 분석합니다.
+    단일 종목을 AI API로 분석합니다.
+    AI_PROVIDER=anthropic(기본) 또는 ollama 중 선택.
     API 호출 실패 또는 파싱 실패 시 중립(fallback)을 반환합니다.
     """
-    import anthropic
-
     ticker = stock_data.get("ticker", "")
     name = stock_data.get("name", "")
     market = fundamentals.get("market", "KOSPI")
@@ -184,21 +183,46 @@ def analyze(stock_data: dict, fundamentals: dict, market_avgs: dict) -> dict:
 
     prompt = _build_prompt(stock_data, fundamentals, market_avgs)
 
-    # ── Claude API 호출 ──
-    raw_text = ""
-    try:
+    provider = os.environ.get("AI_PROVIDER", "anthropic").strip().lower()
+    model = os.environ.get("AI_MODEL", "claude-haiku-4-5-20251001").strip()
+
+    def _call_anthropic() -> str:
+        import anthropic
         client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
         response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=model,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
-            messages=[
-                {"role": "user", "content": prompt},
-            ],
+            messages=[{"role": "user", "content": prompt}],
         )
-        raw_text = response.content[0].text.strip()
+        return response.content[0].text.strip()
+
+    def _call_ollama() -> str:
+        import requests
+        base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+        resp = requests.post(
+            f"{base_url}/api/chat",
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                "stream": False,
+            },
+            timeout=120,
+        )
+        resp.raise_for_status()
+        return resp.json()["message"]["content"].strip()
+
+    raw_text = ""
+    try:
+        if provider == "ollama":
+            raw_text = _call_ollama()
+        else:
+            raw_text = _call_anthropic()
     except Exception as e:
-        err = f"Claude API 호출 실패: {e}"
+        err = f"AI API 호출 실패 [{provider}/{model}]: {e}"
         print(f"  [경고] {name}({ticker}) {err}", file=sys.stderr)
         return _fallback(ticker, name, market, err, fundamentals, market_avgs)
 
